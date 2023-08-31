@@ -527,7 +527,7 @@ def train_and_evaluate(
                     scalars=scalar_dict,
                 )
 
-            if global_step % hps.eval.log_interval == 0:
+            if global_step % hps.train.eval_interval == 0:
                 evaluate(hps, net_g, eval_loader, writer_eval, net_g, net_d, rank)
 
         global_step += 1
