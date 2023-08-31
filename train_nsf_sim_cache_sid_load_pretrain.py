@@ -527,8 +527,7 @@ def train_and_evaluate(
                     scalars=scalar_dict,
                 )
 
-        if global_step % hps.train.log_interval == 0:
-            evaluate(hps, net_g, eval_loader, writer_eval, net_g, net_d)
+                evaluate(hps, net_g, eval_loader, writer_eval, net_g, net_d, rank)
 
         global_step += 1
     # /Run steps
@@ -682,7 +681,7 @@ def save_filelist():
     with open("%s/filelist_eval.txt" % exp_dir, "w") as f:
         f.write("\n".join(opt[:n_eval]))
 
-def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d):
+def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d, rank):
     print("************************ EVALUATE *******************")
     generator.eval()
     image_dict = {}
