@@ -705,6 +705,18 @@ def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d):
             else:
                 phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
 
+            if torch.cuda.is_available():
+                phone = phone.cuda(rank, non_blocking=True)
+                phone_lengths = phone_lengths.cuda(rank, non_blocking=True)
+                if hps.if_f0 == 1:
+                    pitch = pitch.cuda(rank, non_blocking=True)
+                    pitchf = pitchf.cuda(rank, non_blocking=True)
+                sid = sid.cuda(rank, non_blocking=True)
+                spec = spec.cuda(rank, non_blocking=True)
+                spec_lengths = spec_lengths.cuda(rank, non_blocking=True)
+                wave = wave.cuda(rank, non_blocking=True)
+                wave_lengths = wave_lengths.cuda(rank, non_blocking=True)
+
             # Calculate
             with autocast(enabled=hps.train.fp16_run):
                 if hps.if_f0 == 1:
