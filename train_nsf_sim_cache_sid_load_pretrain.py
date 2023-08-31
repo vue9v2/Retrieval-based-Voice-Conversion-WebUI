@@ -757,23 +757,23 @@ def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d, rank):
                     hps.data.mel_fmin,
                     hps.data.mel_fmax,
                 )
-            # if hps.train.fp16_run == True:
-            #     y_hat_mel = y_hat_mel.half()
-            # wave = commons.slice_segments(
-            #     wave, ids_slice * hps.data.hop_length, hps.train.segment_size
-            # )  # slice
+            if hps.train.fp16_run == True:
+                y_hat_mel = y_hat_mel.half()
+            wave = commons.slice_segments(
+                wave, ids_slice * hps.data.hop_length, hps.train.segment_size
+            )  # slice
 
             # Generator
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-            # with autocast(enabled=False):
-            loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
+            with autocast(enabled=False):
+                loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
 
             scalar_dict.update({"eval_loss/g/mel": loss_mel})
 
-        # image_dict.update({
-        #     "gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy()),
-        #     "gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy())
-        # })
+        image_dict.update({
+            "gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy()),
+            "gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy())
+        })
 
     utils.summarize(
         writer=writer_eval,
