@@ -519,6 +519,10 @@ def train_and_evaluate(
                     images=image_dict,
                     scalars=scalar_dict,
                 )
+
+            if global_step % hps.train.log_interval == 0:
+                evaluate(hps, net_g, eval_loader, writer_eval)
+
         global_step += 1
     # /Run steps
 
@@ -667,6 +671,59 @@ def save_filelist():
     shuffle(opt)
     with open("%s/filelist.txt" % exp_dir, "w") as f:
         f.write("\n".join(opt))
+
+def evaluate(hps, generator, eval_loader, writer_eval):
+    generator.eval()
+    image_dict = {}
+    audio_dict = {}
+    scalar_dict = {}
+    with torch.no_grad():
+        for batch_idx, items in enumerate(eval_loader):
+            c, f0, spec, y, spk, _, uv,volume = items
+            g = spk[:1].cuda(0)
+            spec, y = spec[:1].cuda(0), y[:1].cuda(0)
+            c = c[:1].cuda(0)
+            f0 = f0[:1].cuda(0)
+            uv= uv[:1].cuda(0)
+            if volume is not None:
+                volume = volume[:1].cuda(0)
+            mel = spec_to_mel_torch(
+                spec,
+                hps.data.filter_length,
+                hps.data.n_mel_channels,
+                hps.data.sampling_rate,
+                hps.data.mel_fmin,
+                hps.data.mel_fmax)
+            y_hat,_ = generator.module.infer(c, f0, uv, g=g,vol = volume)
+
+            y_hat_mel = mel_spectrogram_torch(
+                y_hat.squeeze(1).float(),
+                hps.data.filter_length,
+                hps.data.n_mel_channels,
+                hps.data.sampling_rate,
+                hps.data.hop_length,
+                hps.data.win_length,
+                hps.data.mel_fmin,
+                hps.data.mel_fmax
+            )
+
+            loss_mel = F.l1_loss(mel, y_hat_mel) * hps.train.c_mel
+            scalar_dict.update({"eval_loss/g/mel": loss_mel})
+
+        image_dict.update({
+            "gen/mel": utils.plot_spectrogram_to_numpy(y_hat_mel[0].cpu().numpy()),
+            "gt/mel": utils.plot_spectrogram_to_numpy(mel[0].cpu().numpy())
+        })
+
+    utils.summarize(
+        writer=writer_eval,
+        global_step=global_step,
+        images=image_dict,
+        audios=audio_dict,
+        scalars=scalar_dict,
+        audio_sampling_rate=hps.data.sampling_rate
+    )
+    generator.train()
 
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method("spawn")
