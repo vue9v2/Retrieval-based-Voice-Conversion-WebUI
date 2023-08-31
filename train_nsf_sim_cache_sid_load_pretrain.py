@@ -676,8 +676,11 @@ def save_filelist():
                 % (now_dir, sr2, now_dir, fea_dim, spk_id5)
             )
     shuffle(opt)
+    n_eval=4
     with open("%s/filelist.txt" % exp_dir, "w") as f:
-        f.write("\n".join(opt))
+        f.write("\n".join(opt[n_eval:]))
+    with open("%s/filelist_eval.txt" % exp_dir, "w") as f:
+        f.write("\n".join(opt[:n_eval]))
 
 def evaluate(hps, generator, eval_loader, writer_eval):
     generator.eval()
