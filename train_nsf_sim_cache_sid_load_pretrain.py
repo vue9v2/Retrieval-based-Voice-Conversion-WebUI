@@ -735,27 +735,27 @@ def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d):
                     mel, ids_slice, hps.train.segment_size // hps.data.hop_length
                 )
 
-                with autocast(enabled=False):
-                    y_hat_mel = mel_spectrogram_torch(
-                        y_hat.float().squeeze(1),
-                        hps.data.filter_length,
-                        hps.data.n_mel_channels,
-                        hps.data.sampling_rate,
-                        hps.data.hop_length,
-                        hps.data.win_length,
-                        hps.data.mel_fmin,
-                        hps.data.mel_fmax,
-                    )
-                # if hps.train.fp16_run == True:
-                #     y_hat_mel = y_hat_mel.half()
-                # wave = commons.slice_segments(
-                #     wave, ids_slice * hps.data.hop_length, hps.train.segment_size
-                # )  # slice
+            with autocast(enabled=False):
+                y_hat_mel = mel_spectrogram_torch(
+                    y_hat.float().squeeze(1),
+                    hps.data.filter_length,
+                    hps.data.n_mel_channels,
+                    hps.data.sampling_rate,
+                    hps.data.hop_length,
+                    hps.data.win_length,
+                    hps.data.mel_fmin,
+                    hps.data.mel_fmax,
+                )
+            # if hps.train.fp16_run == True:
+            #     y_hat_mel = y_hat_mel.half()
+            # wave = commons.slice_segments(
+            #     wave, ids_slice * hps.data.hop_length, hps.train.segment_size
+            # )  # slice
 
-                # Generator
-                y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
-                # with autocast(enabled=False):
-                loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
+            # Generator
+            y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
+            # with autocast(enabled=False):
+            loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
 
             scalar_dict.update({"eval_loss/g/mel": loss_mel})
 
