@@ -422,6 +422,7 @@ def get_hparams(init=True):
     hparams.save_every_weights = args.save_every_weights
     hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
     hparams.data.training_files = "%s/filelist.txt" % experiment_dir
+    hparams.data.validation_files = "%s/filelist_eval.txt" % experiment_dir
     hparams.pitch_guidance = args.pitch_guidance
     hparams.speaker_id = args.speaker_id
     return hparams
