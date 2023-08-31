@@ -528,7 +528,7 @@ def train_and_evaluate(
                 )
 
             if global_step % hps.train.log_interval == 0:
-                evaluate(hps, net_g, eval_loader, writer_eval)
+                evaluate(hps, net_g, eval_loader, writer_eval, net_g, net_d)
 
         global_step += 1
     # /Run steps
@@ -682,43 +682,81 @@ def save_filelist():
     with open("%s/filelist_eval.txt" % exp_dir, "w") as f:
         f.write("\n".join(opt[:n_eval]))
 
-def evaluate(hps, generator, eval_loader, writer_eval):
+def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d):
     generator.eval()
     image_dict = {}
     audio_dict = {}
     scalar_dict = {}
     with torch.no_grad():
-        for batch_idx, items in enumerate(eval_loader):
-            print(len(items))
-            c, f0, spec, y, spk, _, uv,volume = items
-            g = spk[:1].cuda(0)
-            spec, y = spec[:1].cuda(0), y[:1].cuda(0)
-            c = c[:1].cuda(0)
-            f0 = f0[:1].cuda(0)
-            uv= uv[:1].cuda(0)
-            if volume is not None:
-                volume = volume[:1].cuda(0)
-            mel = spec_to_mel_torch(
-                spec,
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax)
-            y_hat,_ = generator.module.infer(c, f0, uv, g=g,vol = volume)
+        for batch_idx, info in enumerate(eval_loader):
+            if hps.if_f0 == 1:
+                (
+                    phone,
+                    phone_lengths,
+                    pitch,
+                    pitchf,
+                    spec,
+                    spec_lengths,
+                    wave,
+                    wave_lengths,
+                    sid,
+                ) = info
+            else:
+                phone, phone_lengths, spec, spec_lengths, wave, wave_lengths, sid = info
 
-            y_hat_mel = mel_spectrogram_torch(
-                y_hat.squeeze(1).float(),
-                hps.data.filter_length,
-                hps.data.n_mel_channels,
-                hps.data.sampling_rate,
-                hps.data.hop_length,
-                hps.data.win_length,
-                hps.data.mel_fmin,
-                hps.data.mel_fmax
-            )
+            # Calculate
+            with autocast(enabled=hps.train.fp16_run):
+                if hps.if_f0 == 1:
+                    (
+                        y_hat,
+                        ids_slice,
+                        x_mask,
+                        z_mask,
+                        (z, z_p, m_p, logs_p, m_q, logs_q),
+                    ) = net_g(phone, phone_lengths, pitch, pitchf, spec, spec_lengths, sid)
+                else:
+                    (
+                        y_hat,
+                        ids_slice,
+                        x_mask,
+                        z_mask,
+                        (z, z_p, m_p, logs_p, m_q, logs_q),
+                    ) = net_g(phone, phone_lengths, spec, spec_lengths, sid)
+                mel = spec_to_mel_torch(
+                    spec,
+                    hps.data.filter_length,
+                    hps.data.n_mel_channels,
+                    hps.data.sampling_rate,
+                    hps.data.mel_fmin,
+                    hps.data.mel_fmax,
+                )
+                y_mel = commons.slice_segments(
+                    mel, ids_slice, hps.train.segment_size // hps.data.hop_length
+                )
 
-            loss_mel = F.l1_loss(mel, y_hat_mel) * hps.train.c_mel
+                with autocast(enabled=False):
+                    y_hat_mel = mel_spectrogram_torch(
+                        y_hat.float().squeeze(1),
+                        hps.data.filter_length,
+                        hps.data.n_mel_channels,
+                        hps.data.sampling_rate,
+                        hps.data.hop_length,
+                        hps.data.win_length,
+                        hps.data.mel_fmin,
+                        hps.data.mel_fmax,
+                    )
+                if hps.train.fp16_run == True:
+                    y_hat_mel = y_hat_mel.half()
+                wave = commons.slice_segments(
+                    wave, ids_slice * hps.data.hop_length, hps.train.segment_size
+                )  # slice
+
+            with autocast(enabled=hps.train.fp16_run):
+                # Generator
+                y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
+                with autocast(enabled=False):
+                    loss_mel = F.l1_loss(y_mel, y_hat_mel) * hps.train.c_mel
+
             scalar_dict.update({"eval_loss/g/mel": loss_mel})
 
         image_dict.update({
