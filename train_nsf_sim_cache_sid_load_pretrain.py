@@ -139,6 +139,13 @@ def run(rank, n_gpus, hps):
         persistent_workers=True,
         prefetch_factor=8,
     )
+
+    if rank == 0:
+        eval_dataset = TextAudioLoaderMultiNSFsid(hps.data.validation_files, hps.data)
+        eval_loader = DataLoader(eval_dataset, num_workers=1, shuffle=False,
+                                 batch_size=1, pin_memory=False,
+                                 drop_last=False, collate_fn=collate_fn)
+
     if hps.if_f0 == 1:
         net_g = RVC_Model_f0(
             hps.data.filter_length // 2 + 1,
@@ -234,7 +241,7 @@ def run(rank, n_gpus, hps):
                 [optim_g, optim_d],
                 [scheduler_g, scheduler_d],
                 scaler,
-                [train_loader, None],
+                [train_loader, eval_loader],
                 logger,
                 [writer, writer_eval],
                 cache,
@@ -248,7 +255,7 @@ def run(rank, n_gpus, hps):
                 [optim_g, optim_d],
                 [scheduler_g, scheduler_d],
                 scaler,
-                [train_loader, None],
+                [train_loader, eval_loader],
                 None,
                 None,
                 cache,
