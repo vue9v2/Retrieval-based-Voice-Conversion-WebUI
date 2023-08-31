@@ -686,6 +686,7 @@ def evaluate(hps, generator, eval_loader, writer_eval):
     scalar_dict = {}
     with torch.no_grad():
         for batch_idx, items in enumerate(eval_loader):
+            print(len(items))
             c, f0, spec, y, spk, _, uv,volume = items
             g = spk[:1].cuda(0)
             spec, y = spec[:1].cuda(0), y[:1].cuda(0)
