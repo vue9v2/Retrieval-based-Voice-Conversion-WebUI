@@ -683,6 +683,7 @@ def save_filelist():
         f.write("\n".join(opt[:n_eval]))
 
 def evaluate(hps, generator, eval_loader, writer_eval, net_g, net_d):
+    print("************************ EVALUATE *******************")
     generator.eval()
     image_dict = {}
     audio_dict = {}
